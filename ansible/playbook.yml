@@ -8,7 +8,7 @@
 
     mysql_user: root
     mysql_password: "123"
-    mysql_db: "SOKHOM_Panha-db"
+    mysql_db: "devops_final"
 
     backup_dir: "{{ repo_path }}/backup"
 
