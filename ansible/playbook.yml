@@ -92,6 +92,7 @@
       shell: >
         mysqldump -u {{ mysql_user }} -p'{{ mysql_password }}' {{ mysql_db }}
         > {{ backup_dir }}/backup.sql
+        mysql_host: 127.0.0.1
       args:
         executable: /bin/bash
 
