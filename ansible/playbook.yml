@@ -1,7 +1,7 @@
----
+
 - name: Deploy, build, test and backup on web server
   hosts: CHOICE_A
-  become: false
+  become: true
 
   vars:
     repo_path: /var/lib/jenkins/workspace/final_ExamDevOps
@@ -17,6 +17,27 @@
     - name: Show current project path
       debug:
         msg: "Using project path {{ repo_path }}"
+
+    # =========================
+    # INSTALL DEPENDENCIES
+    # =========================
+
+    - name: Install MySQL client (mysqldump)
+      apt:
+        name: mysql-client
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install MySQL client (RHEL)
+      yum:
+        name: mysql
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    # =========================
+    # PROJECT CHECKS
+    # =========================
 
     - name: Check for composer.json
       stat:
@@ -57,6 +78,10 @@
         chdir: "{{ repo_path }}"
       when: maven_project.stat.exists
 
+    # =========================
+    # BACKUP SECTION
+    # =========================
+
     - name: Create backup directory
       file:
         path: "{{ backup_dir }}"
@@ -64,8 +89,9 @@
         mode: '0755'
 
     - name: Backup MySQL database
-      shell: |
-        mysqldump -u{{ mysql_user }} -p{{ mysql_password }} "{{ mysql_db }}" > "{{ backup_dir }}/backup.sql"
+      shell: >
+        mysqldump -u {{ mysql_user }} -p'{{ mysql_password }}' {{ mysql_db }}
+        > {{ backup_dir }}/backup.sql
       args:
         executable: /bin/bash
 
