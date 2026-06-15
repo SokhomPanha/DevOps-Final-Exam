@@ -1,7 +1,7 @@
 ---
 - name: Deploy, build, test and backup on web server
   hosts: CHOICE_A
-  become: true
+  become: false
   vars:
     repo_path: /var/www/myapp
     branch: main
