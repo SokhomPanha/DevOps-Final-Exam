@@ -11,7 +11,7 @@ pipeline {
         APP_NAME        = 'demo'
         GIT_REPO_URL    = 'https://github.com/SokhomPanha/DevOps-Final-Exam'
         GIT_BRANCH      = 'master'
-        CC_EMAIL        = 'sokhompanha70@gmail.com'
+        CC_EMAIL        = 'srengty@gmail.com'
         ANSIBLE_PLAYBOOK = 'ansible/playbook.yml'
         ANSIBLE_INVENTORY = 'ansible/inventory.ini'
     }
@@ -31,7 +31,7 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building application with Maven...'
-                sh './mvnw clean package -DskipTests -B'
+                sh 'mvn clean package -DskipTests -B'
             }
         }
 
@@ -39,7 +39,7 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running tests with SQLite test profile...'
-                sh './mvnw -Dspring.profiles.active=test -B test'
+                sh 'mvn -Dspring.profiles.active=test -B test'
             }
             post {
                 always {
