@@ -4,11 +4,13 @@ import com.example.demo.model.*;
 import com.example.demo.repository.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Component
+@Profile("!test")
 public class DataSeeder implements CommandLineRunner {
     private final TerrainRepository terrainRepository;
     private final TerrainImageRepository terrainImageRepository;
