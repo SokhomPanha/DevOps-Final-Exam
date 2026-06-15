@@ -1,4 +1,4 @@
-
+---
 - name: Deploy, build, test and backup on web server
   hosts: CHOICE_A
   become: true
@@ -6,6 +6,7 @@
   vars:
     repo_path: /var/lib/jenkins/workspace/final_ExamDevOps
 
+    mysql_host: 127.0.0.1
     mysql_user: root
     mysql_password: "123"
     mysql_db: "devops_final"
@@ -27,13 +28,13 @@
         name: mysql-client
         state: present
         update_cache: yes
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Install MySQL client (RHEL)
       yum:
         name: mysql
         state: present
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts['os_family'] == "RedHat"
 
     # =========================
     # PROJECT CHECKS
@@ -90,9 +91,8 @@
 
     - name: Backup MySQL database
       shell: >
-        mysqldump -u {{ mysql_user }} -p'{{ mysql_password }}' {{ mysql_db }}
+        mysqldump -h {{ mysql_host }} -u {{ mysql_user }} -p'{{ mysql_password }}' {{ mysql_db }}
         > {{ backup_dir }}/backup.sql
-        mysql_host: 127.0.0.1
       args:
         executable: /bin/bash
 
