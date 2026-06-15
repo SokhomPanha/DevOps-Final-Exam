@@ -1,36 +1,39 @@
 ---
 - name: Deploy, build, test and backup on web server
-  hosts: CHOICE_A
+  hosts: springboot-web
   become: true
 
   vars:
     repo_path: /var/lib/jenkins/workspace/final_ExamDevOps
 
+    # IMPORTANT: change this if DB is on another server
     mysql_host: 127.0.0.1
     mysql_user: root
     mysql_password: "123"
-    mysql_db: "devops_final"
+    mysql_db: devops_final
 
     backup_dir: "{{ repo_path }}/backup"
 
   tasks:
 
+    # =========================
+    # SHOW PROJECT
+    # =========================
     - name: Show current project path
       debug:
         msg: "Using project path {{ repo_path }}"
 
     # =========================
-    # INSTALL DEPENDENCIES
+    # INSTALL MYSQL CLIENT
     # =========================
-
-    - name: Install MySQL client (mysqldump)
+    - name: Install MySQL client (Debian/Ubuntu)
       apt:
         name: mysql-client
         state: present
         update_cache: yes
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: Install MySQL client (RHEL)
+    - name: Install MySQL client (RHEL/CentOS)
       yum:
         name: mysql
         state: present
@@ -39,7 +42,6 @@
     # =========================
     # PROJECT CHECKS
     # =========================
-
     - name: Check for composer.json
       stat:
         path: "{{ repo_path }}/composer.json"
@@ -82,7 +84,6 @@
     # =========================
     # BACKUP SECTION
     # =========================
-
     - name: Create backup directory
       file:
         path: "{{ backup_dir }}"
@@ -91,10 +92,14 @@
 
     - name: Backup MySQL database
       shell: >
-        mysqldump -h {{ mysql_host }} -u {{ mysql_user }} -p'{{ mysql_password }}' {{ mysql_db }}
+        mysqldump -h {{ mysql_host }}
+        -u {{ mysql_user }}
+        -p'{{ mysql_password }}'
+        {{ mysql_db }}
         > {{ backup_dir }}/backup.sql
       args:
         executable: /bin/bash
+      ignore_errors: no
 
     - name: Verify backup file exists
       stat:
