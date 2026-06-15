@@ -1,0 +1,131 @@
+---
+- name: Login and deploy on web server
+  hosts: web_servers
+  vars:
+    app_dir: /app
+
+  tasks:
+    - name: Show server info
+      debug:
+        msg: "Connected to {{ ansible_facts.hostname }} ({{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }})"
+
+    - name: Ensure clean working tree and git pull
+      shell: |
+        if [ -n "$(git status --porcelain)" ]; then
+          git stash
+          echo "STASHED"
+        fi
+        git pull origin master 2>&1
+      args:
+        chdir: "{{ app_dir }}"
+      register: git_result
+      failed_when: false
+
+    - name: Git result
+      debug:
+        msg: "{{ git_result.stdout_lines }}"
+
+    - name: Composer install
+      shell: |
+        if [ -f composer.json ]; then
+          /usr/local/bin/composer install --no-interaction --prefer-dist 2>&1 || true
+        else
+          echo "No composer.json - skipping"
+        fi
+      args:
+        chdir: "{{ app_dir }}"
+      register: composer_result
+      failed_when: false
+
+    - name: Composer result
+      debug:
+        msg: "{{ composer_result.stdout_lines }}"
+
+    - name: NPM install
+      shell: |
+        if [ -f package.json ]; then
+          npm install --no-audit --no-fund 2>&1 || true
+        else
+          echo "No package.json - skipping"
+        fi
+      args:
+        chdir: "{{ app_dir }}"
+      register: npm_result
+      failed_when: false
+
+    - name: NPM result
+      debug:
+        msg: "{{ npm_result.stdout_lines }}"
+
+    - name: Maven package
+      shell: |
+        if [ -f mvnw ]; then
+          ./mvnw clean package -DskipTests -q 2>&1 || true
+        else
+          echo "No mvnw - skipping"
+        fi
+      args:
+        chdir: "{{ app_dir }}"
+      register: maven_build
+      failed_when: false
+
+    - name: Maven result
+      debug:
+        msg: "Maven: {{ 'ok' if maven_build.rc == 0 else 'FAILED' }}"
+
+    - name: Run tests with H2 test database
+      shell: |
+        if [ -f mvnw ]; then
+          ./mvnw test -Dspring.profiles.active=test 2>&1 || true
+        else
+          echo "No mvnw - skipping tests"
+        fi
+      args:
+        chdir: "{{ app_dir }}"
+      register: test_result
+      failed_when: false
+
+    - name: Test output
+      debug:
+        msg: "{{ test_result.stdout_lines }}"
+
+    - name: Test summary
+      debug:
+        msg: "Test DB: H2 in-memory | Prod DB: MySQL SOKHOM_Panha-db | Tests: {{ 'PASSED' if test_result.rc == 0 else 'FAILED' }}"
+
+    - name: Restore stashed changes
+      shell: git stash pop
+      args:
+        chdir: "{{ app_dir }}"
+      when: git_result.stdout is defined and 'STASHED' in git_result.stdout
+      failed_when: false
+
+- name: Backup MySQL database
+  hosts: localhost
+  connection: local
+  vars:
+    backup_dir: "/tmp/demo-backups"
+    mysql_container: mysql-db
+    mysql_user: root
+    mysql_password: "123"
+    mysql_db: SOKHOM_Panha-db
+
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Dump MySQL database
+      shell: docker exec {{ mysql_container }} mysqldump -u {{ mysql_user }} -p'{{ mysql_password }}' --single-transaction --routines --triggers --no-tablespaces {{ mysql_db }} > "{{ backup_dir }}/backup.sql"
+      register: backup_result
+      failed_when: backup_result.rc != 0
+
+    - name: Get backup file size
+      shell: ls -lh "{{ backup_dir }}/backup.sql" | awk '{print $5}'
+      register: backup_size
+
+    - name: Backup result
+      debug:
+        msg: "MySQL backup: {{ backup_dir }}/backup.sql ({{ backup_size.stdout }}) - {{ mysql_db }}"

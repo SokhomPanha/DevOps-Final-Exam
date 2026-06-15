@@ -1,0 +1,121 @@
+---
+- name: Deploy, build, test and backup on web server
+  hosts: CHOICE_A
+  become: true
+  vars:
+    repo_path: /var/www/myapp
+    branch: main
+    deploy_user: deploy
+    repo_url: ""
+    mysql_user: root
+    mysql_password: "123"
+    mysql_db: SOKHOM_Panha-db
+    backup_dir: /var/backups/mysql
+    test_db_url: "jdbc:sqlite:{{ repo_path }}/test-db.sqlite"
+
+  tasks:
+    - name: Ensure repo_path exists
+      file:
+        path: "{{ repo_path }}"
+        state: directory
+        owner: "{{ deploy_user }}"
+
+    - name: Check if repo_path is a git repo
+      stat:
+        path: "{{ repo_path }}/.git"
+      register: git_present
+
+    - name: Clone repository if not present and repo_url provided
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_path }}"
+        version: "{{ branch }}"
+        force: yes
+      when: not git_present.stat.exists and repo_url != ""
+      become_user: "{{ deploy_user }}"
+
+    - name: Fail if repo is missing and no repo_url provided
+      fail:
+        msg: "No git repository found at {{ repo_path }} and no repo_url provided. Set repo_url or mount the project into the container."
+      when: not git_present.stat.exists and repo_url == ""
+
+    - name: Check for local git changes
+      command: git status --porcelain
+      args:
+        chdir: "{{ repo_path }}"
+      register: git_status
+      become_user: "{{ deploy_user }}"
+      when: git_present.stat.exists
+
+    - name: Fail if local changes exist
+      fail:
+        msg: "Local changes present in {{ repo_path }}. Commit or stash them before pulling."
+      when: git_status.stdout_lines | length > 0
+
+    - name: Fetch and reset to remote branch
+      command: git fetch --all && git checkout {{ branch }} && git reset --hard origin/{{ branch }}
+      args:
+        chdir: "{{ repo_path }}"
+      become_user: "{{ deploy_user }}"
+      when: git_present.stat.exists
+
+    - name: Git pull latest
+      command: git pull origin {{ branch }}
+      args:
+        chdir: "{{ repo_path }}"
+      become_user: "{{ deploy_user }}"
+      when: git_present.stat.exists
+
+    - name: Check for composer.json
+      stat:
+        path: "{{ repo_path }}/composer.json"
+      register: composer_json
+
+    - name: Install PHP dependencies with Composer
+      command: composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
+      args:
+        chdir: "{{ repo_path }}"
+      when: composer_json.stat.exists
+
+    - name: Check for package.json
+      stat:
+        path: "{{ repo_path }}/package.json"
+      register: package_json
+
+    - name: Install Node dependencies (npm ci)
+      command: npm ci
+      args:
+        chdir: "{{ repo_path }}"
+      when: package_json.stat.exists
+
+    - name: Build frontend (npm run build)
+      command: npm run build
+      args:
+        chdir: "{{ repo_path }}"
+      when: package_json.stat.exists
+
+    - name: Check for pom.xml (Maven project)
+      stat:
+        path: "{{ repo_path }}/pom.xml"
+      register: maven_project
+
+    - name: Run Maven tests using SQLite test DB
+      command: mvn -B test
+      args:
+        chdir: "{{ repo_path }}"
+      environment:
+        SPRING_DATASOURCE_URL: "{{ test_db_url }}"
+        SPRING_DATASOURCE_USERNAME: ""
+        SPRING_DATASOURCE_PASSWORD: ""
+      when: maven_project.stat.exists
+
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Backup MySQL database to SQL dump
+      command: >
+        mysqldump -u{{ mysql_user }} -p'{{ mysql_password }}' {{ mysql_db }} 
+        > {{ backup_dir }}/{{ mysql_db }}-{{ ansible_date_time.date }}-{{ ansible_date_time.time }}.sql

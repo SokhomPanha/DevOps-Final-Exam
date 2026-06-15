@@ -9,7 +9,7 @@ services:
     ports:
       - "8081:8080"
       - "81:80"
-      - "23:22"
+      - "2222:22"
 
     depends_on:
       - mysql
