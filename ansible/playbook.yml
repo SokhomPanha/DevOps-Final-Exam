@@ -6,18 +6,19 @@
   vars:
     repo_path: /var/lib/jenkins/workspace/final_ExamDevOps
 
-    # IMPORTANT: change this if DB is on another server
-    mysql_host: 127.0.0.1
+    # ===== MySQL CONFIG =====
+    mysql_host: 127.0.0.1   # CHANGE THIS if DB is remote
     mysql_user: root
     mysql_password: "123"
     mysql_db: devops_final
 
+    # ===== BACKUP =====
     backup_dir: "{{ repo_path }}/backup"
 
   tasks:
 
     # =========================
-    # SHOW PROJECT
+    # SHOW INFO
     # =========================
     - name: Show current project path
       debug:
@@ -99,7 +100,6 @@
         > {{ backup_dir }}/backup.sql
       args:
         executable: /bin/bash
-      ignore_errors: no
 
     - name: Verify backup file exists
       stat:
