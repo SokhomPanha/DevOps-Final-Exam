@@ -11,7 +11,7 @@ pipeline {
         APP_NAME        = 'demo'
         GIT_REPO_URL    = 'https://github.com/SokhomPanha/DevOps-Final-Exam'
         GIT_BRANCH      = 'master'
-        CC_EMAIL        = 'zenocoder101@gmail.com'
+        CC_EMAIL        = 'srengty@gmail.com'
         ANSIBLE_PLAYBOOK = 'ansible/playbook.yml'
         ANSIBLE_INVENTORY = 'ansible/inventory.ini'
     }
